@@ -125,7 +125,7 @@
                 mcon = (hvap*(qadv(i,k)+tmf(i,k)+qmicro(i,k))*dp(i,k))
                 buy2 = termD(i)+mcon+mcons(i)
 !               Do the integral over buoyant layers with positive mcon acc from surface
-                if(dbyo1(i,k)>0 .and. buy2 > 0.)then
+                if(k > kbcon1(i) .and. k < ktcon(i) .and. buy2 > 0.)then
                    inbu(i,k)=1.
                 endif
                 inbu(i,k-1)=MAX(inbu(i,k-1),inbu(i,k))
