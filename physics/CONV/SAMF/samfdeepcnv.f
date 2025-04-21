@@ -2540,7 +2540,7 @@ c
 !> - If grid size is less than a threshold value (dxcrtas: currently 8km if progsigma is not used and 30km if progsigma is used), the quasi-equilibrium assumption of Arakawa-Schubert is not used any longer.
 !
       if(progsigma)then
-         dxcrtas=30.e3
+         dxcrtas=500.e3
          dxcrtuf=10.e3
       else
          dxcrtas=8.e3
@@ -3468,12 +3468,12 @@ c
       enddo
 c
 !
-      if(progsigma)then
+      !if(progsigma)then
          do i = 1, im
             sigmaoutx(i)=max(sigmaout(i,1),0.0)
             sigmaoutx(i)=min(sigmaoutx(i),1.0)
          enddo
-      endif
+      !endif
 c
 !> - Calculate convective cloud water.
       do k = 1, km
@@ -3481,11 +3481,11 @@ c
             if (cnvflg(i) .and. rn(i) > 0.) then
                if (k >= kbcon(i) .and. k < ktcon(i)) then
                   cnvw(i,k) = cnvwt(i,k) * xmb(i) * dt2
-                  if(progsigma)then
+                  !if(progsigma)then
                      cnvw(i,k) = cnvw(i,k) * sigmaoutx(i)
-                  else
-                     cnvw(i,k) = cnvw(i,k) * sigmagfm(i)
-                  endif
+                  !else
+                  !   cnvw(i,k) = cnvw(i,k) * sigmagfm(i)
+                  !endif
                endif
             endif
          enddo
