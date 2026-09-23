@@ -222,7 +222,7 @@ cj
      &     omegac(im),zeta(im,km),dbyo1(im,km),sigmab(im),qadv(im,km)
       real(kind=kind_phys) gravinv,invdelt,sigmind,sigminm,sigmins,
      &     wc_min, wc_eff 
-      logical flag_shallow, flag_mid
+      logical flag_shallow, flag_mid, shallow_veto(im)
 c  physical parameters
 !     parameter(grav=grav,asolfac=0.958)
 !     parameter(elocp=hvap/cp,el2orc=hvap*hvap/(rv*cp))
@@ -388,7 +388,8 @@ c
       wet_dep = 0.
 !
       do i=1,im
-        cnvflg(i) = .true.
+         cnvflg(i) = .true.
+         shallow_veto(i) = .false.
         if(do_mynnedmf) then
             if(maxMF(i).gt.0.)cnvflg(i)=.false.
         endif
@@ -1507,7 +1508,10 @@ c
              ktcon(i) = ktconn(i)
           endif
           tem = pfld(i,kbcon(i))-pfld(i,ktcon(i))
-          if(tem < cthk) cnvflg(i) = .false.
+          if(tem < cthk) then
+             cnvflg(i) = .false.
+             shallow_veto(i) = .true.
+          endif
         endif
       enddo
 
@@ -1832,9 +1836,20 @@ c
       endif
 !                  
       if (progomega) then
+         !Allow convection if there is updraft memory
+         do i = 1, im
+            if (.not. cnvflg(i) .and. .not. shallow_veto(i)) then
+               if (minval(omegain(i,:)) < -1.0) then
+                  cnvflg(i) = .true.
+	       endif
+            endif
+
+            if (kbcon(i) == kmax(i)) cnvflg(i) = .false.
+         enddo
+         
          call progomega_calc(first_time_step,restart,im,km,
      &        kbcon1,ktcon,omegain,delt,del,zi,cnvflg,omegaout,
-     &        grav,buo,drag,wush,lbb1,lbb2,lbb3,dt_decay)
+     &        grav,buo,drag,wush,lbb1,lbb2,lbb3,dt_decay,1)
          do k = 1, km
             do i = 1, im
                if (cnvflg(i)) then

@@ -90,10 +90,10 @@
       real(kind=kind_phys), intent(in) :: t1(:,:), u1(:,:), v1(:,:)
 !
       integer, intent(out) :: kbot(:), ktop(:)
-      real(kind=kind_phys), intent(out) :: rn(:),                       &
-     &   cnvw(:,:), cnvc(:,:), dt_mf(:,:)
-!
-      real(kind=kind_phys), intent(out) :: ud_mf(:,:)
+      real(kind=kind_phys), intent(out) :: rn(:)
+      
+      real(kind=kind_phys), intent(inout) :: ud_mf(:,:), dt_mf(:,:),    &
+     &   cnvw(:,:), cnvc(:,:)   
       real(kind=kind_phys), intent(inout), optional :: sigmaout(:,:),   &
      &   omegaout(:,:)
 
@@ -174,7 +174,7 @@ cc
      &                     omegac(im),zeta(im,km),dbyo1(im,km),
      &                     sigmab(im),qadv(im,km)
       real(kind=kind_phys) gravinv,dxcrtas,invdelt,sigmind,sigmins,
-     &                     sigminm,wc_min,wc_eff
+     &                     sigminm,wc_min,wc_eff, decay_fac
       logical flag_shallow,flag_mid
 c  physical parameters
 !     parameter(g=grav,asolfac=0.89)
@@ -431,20 +431,18 @@ c
         enddo
       enddo
 !
-!>  - Initialize convective cloud water and cloud cover to zero.
+! >  - Initialize convective cloud water and cloud cover to zero.
+! >  - Note: These fields are shared between deep and shallow and
+! >  - should therefore only be set to zero in shallow cu point.      
       do k = 1, km
-        do i = 1, im
-          cnvw(i,k) = 0.
-          cnvc(i,k) = 0.
-        enddo
-      enddo
-! hchuang code change
-!>  - Initialize updraft mass fluxes to zero.
-      do k = 1, km
-        do i = 1, im
-          ud_mf(i,k) = 0.
-          dt_mf(i,k) = 0.
-        enddo
+         do i = 1, im
+            if(cnvflg(i))then
+               cnvw(i,k) = 0.
+               cnvc(i,k) = 0.
+               ud_mf(i,k) = 0.
+               dt_mf(i,k) = 0.
+            endif
+         enddo
       enddo
 c
       dt2   = delt
@@ -1571,9 +1569,21 @@ c
       endif
 !
       if (progomega) then
+
+         !Allow convection if there is updraft memory
+	 do i = 1, im
+           if (kcnv(i) == 1) then
+               cnvflg(i) = .false.
+            else if (minval(omegain(i,:)) < -1.0) then
+	       cnvflg(i) = .true.
+            endif
+            if (kbcon(i) == kmax(i)) cnvflg(i) = .false.
+         enddo
+
+         
          call progomega_calc(first_time_step,restart,im,km,
      &        kbcon1,ktcon,omegain,delt,del,zi,cnvflg,omegaout,
-     &        grav,buo,drag,wush,lbb1,lbb2,lbb3,dt_decay)
+     &        grav,buo,drag,wush,lbb1,lbb2,lbb3,dt_decay,2)
          do k = 1, km
             do i = 1, im
                if (cnvflg(i)) then
@@ -2599,6 +2609,20 @@ c
         endif
       enddo
 !
+!> Decay prognostic updraft velocity at points where both deep and
+!! shallow convection are inactive.
+
+      if(progomega)then
+         decay_fac = exp(-delt/dt_decay)
+         do k = 1, km
+            do i = 1, im
+               if (kcnv(i) == 0) then
+                  omegaout(i,k) = omegain(i,k) * decay_fac
+               endif
+            enddo
+         enddo
+      endif
+      
 !   include TKE contribution from shallow convection
 !
       if (.not.hwrf_samfshal) then
